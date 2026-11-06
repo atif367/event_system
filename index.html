@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Event Registration</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 0 10px; }
+  input, button { padding: 6px; margin: 3px 0; }
+  section, li { border: 1px solid #ccc; padding: 10px; margin: 10px 0; list-style: none; }
+  .msg { color: #c00; } .ok { color: green; }
+</style>
+</head>
+<body>
+<h1>Event Registration System</h1>
+
+<div id="auth">
+  <section>
+    <h2>Registration</h2>
+    <input id="name" placeholder="Name"><br>
+    <input id="email" placeholder="Email"><br>
+    <input id="password" type="password" placeholder="Password"><br>
+    <button id="regBtn">Register</button>
+    <p id="msg"></p>
+  </section>
+  <section>
+    <h2>Login</h2>
+    <input id="lemail" placeholder="Email"><br>
+    <input id="lpassword" type="password" placeholder="Password"><br>
+    <button id="loginBtn">Login</button>
+    <p id="lmsg"></p>
+  </section>
+</div>
+
+<div id="dashboard" hidden>
+  <h2 id="welcome"></h2>
+  <button id="logout">Logout</button>
+  <p id="confirm"></p>
+  <h3>Events</h3><ul id="events"></ul>
+  <h3>My Registrations</h3><ul id="myEvents"></ul>
+  <div id="admin" hidden>
+    <h3>Admin Dashboard - Participants</h3>
+    <input id="evName" placeholder="Event name"> <input id="evDate" type="date">
+    <button id="addEv">Add Event</button>
+    <ul id="participants"></ul>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';');
+let token = '';
+
+async function api(url, method = 'GET', body) {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: token }, body: body && JSON.stringify(body) });
+  return { ok: r.ok, d: await r.json() };
+}
+const say = (el, text, ok) => { $(el).textContent = text; $(el).className = ok ? 'ok' : 'msg'; };
+
+$('regBtn').onclick = async () => {
+  const b = { name: $('name').value.trim(), email: $('email').value.trim(), password: $('password').value };
+  if (!b.name || !b.email || !b.password) return say('msg', 'All fields are required');
+  if (!/^\S+@\S+\.\S+$/.test(b.email)) return say('msg', 'Invalid email address');
+  const r = await api('/api/register', 'POST', b);
+  say('msg', r.ok ? r.d.message : r.d.error, r.ok);
+};
+
+$('loginBtn').onclick = async () => {
+  const r = await api('/api/login', 'POST', { email: $('lemail').value.trim(), password: $('lpassword').value });
+  if (!r.ok) return say('lmsg', r.d.error);
+  token = r.d.token;
+  $('auth').hidden = true; $('dashboard').hidden = false;
+  $('welcome').textContent = 'Welcome, ' + r.d.user.name;
+  $('admin').hidden = r.d.user.role !== 'admin';
+  load();
+};
+
+$('logout').onclick = () => location.reload();
+
+async function load() {
+  const ev = (await api('/api/events')).d;
+  $('events').innerHTML = ev.map(e => `<li>${esc(e.name)} (${e.date}) <button class="reg" onclick="reg(${e.id})">Register</button></li>`).join('');
+  const my = (await api('/api/my')).d;
+  $('myEvents').innerHTML = my.map(e => `<li>${esc(e.name)} (${e.date}) - Code: ${e.code}</li>`).join('') || '<li>None</li>';
+  if (!$('admin').hidden) {
+    const a = (await api('/api/admin/events')).d;
+    $('participants').innerHTML = a.map(e => `<li><b>${esc(e.name)}</b> (${e.participants.length}): ` +
+      (e.participants.map(p => esc(p.name) + ' &lt;' + esc(p.email) + '&gt;').join(', ') || 'no participants') + '</li>').join('');
+  }
+}
+
+async function reg(id) {
+  const r = await api(`/api/events/${id}/register`, 'POST');
+  say('confirm', r.ok ? `Registration confirmed for ${r.d.event}! Code: ${r.d.code}` : r.d.error, r.ok);
+  load();
+}
+
+$('addEv').onclick = async () => {
+  await api('/api/events', 'POST', { name: $('evName').value.trim(), date: $('evDate').value });
+  load();
+};
+</script>
+</body>
+</html>

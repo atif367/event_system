@@ -1,0 +1,14 @@
+node_modules
+.git
+Jenkinsfile
+test.js
+*.log
+.env
+.env.*
+.gitignore
+.dockerignore
+.vscode
+coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
