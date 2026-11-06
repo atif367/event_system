@@ -7,7 +7,7 @@ pipeline {
       steps {
         bat 'docker rm -f event-app >nul 2>&1 || exit /b 0'
         bat 'docker run -d --name event-app -p 3000:3000 event-system'
-        bat 'timeout /t 5 /nobreak >nul'
+        bat 'powershell -NoProfile -NonInteractive -Command "Start-Sleep -Seconds 5"'
       }
     }
     stage('Selenium Tests') {
